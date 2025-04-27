@@ -492,7 +492,7 @@ def search_documents(query: str) -> list[str]:
         results = []
         for idx in I[0]:
             data = metadata[idx]
-            results.append(f"{data['chunk']}\n[Source: {data['doc']}, ID: {data['chunk_id']}]")
+            results.append(f"{data['chunk']}\n[Source: {data['url']}, ID: {data['chunk_id']}]")
         return results
     except Exception as e:
         return [f"ERROR: Failed to search: {str(e)}"]
@@ -513,7 +513,7 @@ if __name__ == "__main__":
         time.sleep(2)
 
         # Process documents after server is running
-        process_documents()
+        #process_documents()
         
         # Keep the main thread alive
         try:

@@ -24,8 +24,8 @@ app.add_middleware(
 
 EMBED_URL = "http://localhost:11434/api/embeddings"
 EMBED_MODEL = "nomic-embed-text"
-CHUNK_SIZE = 256
-CHUNK_OVERLAP = 40
+CHUNK_SIZE = 128
+CHUNK_OVERLAP = 30
 ROOT = Path(__file__).parent.resolve()
 
 class InputData(BaseModel):
@@ -66,7 +66,7 @@ def process_documents(url: str, html_body: str):
 
     # Convert HTML body to markdown text
     # Ensure the result is a string
-    markdown_text = str(MarkItDown().convert(str(url)))
+    markdown_text = str(MarkItDown().convert(str("data:"+html_body)))
 
     # Compute hash for the markdown text
     content_hash = compute_hash(markdown_text)
