@@ -1,4 +1,3 @@
-
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 import asyncio
@@ -6,8 +5,47 @@ from src.memory_data import update_user_query, get_recent_memory_interactions, a
 from src.perception import get_perception
 from src.plan import get_plan
 from src.action import execute_action
+from fastapi import FastAPI, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from typing import Any, Dict
 
-async def main(query: str):
+app = FastAPI()
+
+# Configure CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allows all origins
+    allow_credentials=True,
+    allow_methods=["*"],  # Allows all methods
+    allow_headers=["*"],  # Allows all headers
+)
+
+class InputSearchQuery(BaseModel):
+    query: str
+
+@app.get("/search-text")
+async def search_text(query: str = Query(..., description="Search query")):
+    if not query:
+        raise HTTPException(status_code=400, detail="'query' is required")
+
+    # Pass the query to process_documents
+    print("INFO", f"Processing query: {query}")
+    response_data = await main(query)
+    if response_data is None:
+        raise HTTPException(status_code=500, detail="Failed to process the query. Response data is None.")
+
+    url = response_data.get("url")
+    highlight_text = response_data.get("highlight_text")
+
+    response = {
+        "query": query,
+        "url": url,
+        "highlight_text": highlight_text
+    }
+    return response
+
+async def main(query: str) -> Dict[str, Any]:
     print("ASSISTANT:", "Starting main execution...")
     try:
         # Create a single MCP server connection
@@ -57,7 +95,7 @@ async def main(query: str):
 
                     if plan_output.response_type == "FINAL_ANSWER":
                         print("ASSISTANT:", f"✅ FINAL RESULT: {plan_output}")
-                        break
+                        return plan_output.arguments
 
                     try:
                         # Action
@@ -83,7 +121,16 @@ async def main(query: str):
     except KeyboardInterrupt:
         print("ASSISTANT:", "\nGoodbye!")
 
+# if __name__ == "__main__":
+#     query = input("\nEnter your query or Press Enter for default one: ").strip()
+#     query = query if query else "What do you know about Don Tapscott and Anthony Williams?"
+#     asyncio.run(main(query))
+
 if __name__ == "__main__":
-    query = input("\nEnter your query or Press Enter for default one: ").strip()
-    query = query if query else "What do you know about Don Tapscott and Anthony Williams?"
-    asyncio.run(main(query))
+    import uvicorn
+    uvicorn.run(
+        "main:app",
+        host="127.0.0.1",
+        port=8081, 
+        reload=True
+    )

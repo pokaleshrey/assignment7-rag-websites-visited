@@ -497,6 +497,24 @@ def search_documents(query: str) -> list[str]:
     except Exception as e:
         return [f"ERROR: Failed to search: {str(e)}"]
 
+@mcp.tool()
+def find_url_for_given_text(query: str) -> list[str]:
+    """Searches for a url for a given text."""
+    ensure_faiss_ready()
+    mcp_log("SEARCH", f"Query: {query}")
+    try:
+        index = faiss.read_index(str(ROOT / "faiss_index" / "index.bin"))
+        metadata = json.loads((ROOT / "faiss_index" / "metadata.json").read_text())
+        query_vec = get_embedding(query).reshape(1, -1)
+        D, I = index.search(query_vec, k=5)
+        results = []
+        for idx in I[0]:
+            data = metadata[idx]
+            results.append(f"{data['chunk']}\n[Source: {data['url']}, ID: {data['chunk_id']}]")
+        return results
+    except Exception as e:
+        return [f"ERROR: Failed to search: {str(e)}"]
+
 if __name__ == "__main__":
     # Check if running with mcp dev command
     print("STARTING")
