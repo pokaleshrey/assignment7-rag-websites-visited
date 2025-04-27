@@ -95,7 +95,7 @@ def get_plan(perception_output: PerceptionOutput, tools_descriptions: Optional[s
             contents=system_prompt
         )
         raw = response.text.strip()
-        print("PLAN:", f"LLM Output: {raw}")
+        #print("PLAN:", f"LLM Output: {raw}")
 
     except Exception as e:
         print("PLAN:", f"⚠️ Decision generation failed: {e}")

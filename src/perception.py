@@ -45,7 +45,7 @@ What should i do next ?
             clean = re.sub(r"^```json|```$", "", text.strip(), flags=re.MULTILINE).strip()
 
             parsed_output = json.loads(clean)
-            print("PERCEPTION:", f"Parsed Output: {parsed_output}")
+            #print("PERCEPTION:", f"Parsed Output: {parsed_output}")
             # Create and return a PerceptionOutput object
             return PerceptionOutput(
                 user_query=user_query,  # Set the user_query field

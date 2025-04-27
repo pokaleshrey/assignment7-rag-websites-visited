@@ -8,7 +8,7 @@ async def execute_action(plan_output:PlanOutput, session:ClientSession) -> TextC
     print(f"ACTION: Calling tool {plan_output.tool} with arguments: {plan_output.arguments}")
     
     result = await session.call_tool(plan_output.tool, arguments=plan_output.arguments)
-    print(f"ACTION: LLM Output: {result}")
+    #print(f"ACTION: LLM Output: {result}")
     
     # Get the full result content
     if hasattr(result, 'content'):
