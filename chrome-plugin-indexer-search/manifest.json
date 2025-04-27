@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "Webpage URL and HTML Sender",
+  "version": "1.0",
+  "description": "Sends the URL and HTML body of visited webpages to a POST web service.",
+  "permissions": ["webNavigation", "activeTab","storage","scripting"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "host_permissions": [
+    "<all_urls>"
+  ]
+}

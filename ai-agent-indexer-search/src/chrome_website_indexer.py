@@ -47,52 +47,52 @@ def mcp_log(level: str, message: str) -> None:
     sys.stderr.write(f"{level}: {message}\n")
     sys.stderr.flush()
 
-def process_documents():
-    """Process documents and create FAISS index"""
-    mcp_log("INFO", "Indexing documents with MarkItDown...")
+def process_documents(url: str, html_body: str):
+    """Process a single document (URL) and create/update FAISS index"""
+    mcp_log("INFO", f"Indexing document for URL: {url}")
     ROOT = Path(__file__).parent.resolve()
-    DOC_PATH = ROOT / "documents"
     INDEX_CACHE = ROOT / "faiss_index"
     INDEX_CACHE.mkdir(exist_ok=True)
     INDEX_FILE = INDEX_CACHE / "index.bin"
     METADATA_FILE = INDEX_CACHE / "metadata.json"
     CACHE_FILE = INDEX_CACHE / "doc_index_cache.json"
 
-    def file_hash(path):
-        return hashlib.md5(Path(path).read_bytes()).hexdigest()
+    def compute_hash(content):
+        return hashlib.md5(content.encode('utf-8')).hexdigest()
 
     CACHE_META = json.loads(CACHE_FILE.read_text()) if CACHE_FILE.exists() else {}
     metadata = json.loads(METADATA_FILE.read_text()) if METADATA_FILE.exists() else []
     index = faiss.read_index(str(INDEX_FILE)) if INDEX_FILE.exists() else None
-    all_embeddings = []
-    converter = MarkItDown()
 
-    for file in DOC_PATH.glob("*.*"):
-        fhash = file_hash(file)
-        if file.name in CACHE_META and CACHE_META[file.name] == fhash:
-            mcp_log("SKIP", f"Skipping unchanged file: {file.name}")
-            continue
+    # Convert HTML body to markdown text
+    # Ensure the result is a string
+    markdown_text = str(MarkItDown().convert(str(url)))
 
-        mcp_log("PROC", f"Processing: {file.name}")
-        try:
-            result = converter.convert(str(file))
-            markdown = result.text_content
-            chunks = list(chunk_text(markdown))
-            embeddings_for_file = []
-            new_metadata = []
-            for i, chunk in enumerate(tqdm(chunks, desc=f"Embedding {file.name}")):
-                embedding = get_embedding(chunk)
-                embeddings_for_file.append(embedding)
-                new_metadata.append({"doc": file.name, "chunk": chunk, "chunk_id": f"{file.stem}_{i}"})
-            if embeddings_for_file:
-                if index is None:
-                    dim = len(embeddings_for_file[0])
-                    index = faiss.IndexFlatL2(dim)
-                index.add(np.stack(embeddings_for_file))
-                metadata.extend(new_metadata)
-            CACHE_META[file.name] = fhash
-        except Exception as e:
-            mcp_log("ERROR", f"Failed to process {file.name}: {e}")
+    # Compute hash for the markdown text
+    content_hash = compute_hash(markdown_text)
+    if url in CACHE_META and CACHE_META[url] == content_hash:
+        mcp_log("SKIP", f"Skipping unchanged URL: {url}")
+        return
+
+    try:
+        chunks = list(chunk_text(markdown_text))
+        embeddings_for_url = []
+        new_metadata = []
+        for i, chunk in enumerate(tqdm(chunks, desc=f"Embedding {url}")):
+            embedding = get_embedding(chunk)
+            embeddings_for_url.append(embedding)
+            new_metadata.append({"url": url, "chunk": chunk, "chunk_id": f"{url}_{i}"})
+
+        if embeddings_for_url:
+            if index is None:
+                dim = len(embeddings_for_url[0])
+                index = faiss.IndexFlatL2(dim)
+            index.add(np.stack(embeddings_for_url))
+            metadata.extend(new_metadata)
+
+        CACHE_META[url] = content_hash
+    except Exception as e:
+        mcp_log("ERROR", f"Failed to process URL {url}: {e}")
 
     CACHE_FILE.write_text(json.dumps(CACHE_META, indent=2))
     METADATA_FILE.write_text(json.dumps(metadata, indent=2))
@@ -100,7 +100,7 @@ def process_documents():
         faiss.write_index(index, str(INDEX_FILE))
         mcp_log("SUCCESS", "Saved FAISS index and metadata")
     else:
-        mcp_log("WARN", "No new documents or updates to process.")
+        mcp_log("WARN", "No new data or updates to process.")
 
 def ensure_faiss_ready():
     from pathlib import Path
@@ -117,9 +117,12 @@ async def index_website(data: InputData):
     if not data.url or not data.body:
         raise HTTPException(status_code=400, detail="Both 'url' and 'body' are required")
 
-    # Process the URL and body (placeholder for your logic)
+    # Pass the URL and body to process_documents
+    mcp_log("INFO", f"Processing website: {data.url}")
+    process_documents(data.url, data.body)
+
     response = {
-        "message": "Data received successfully",
+        "message": "Data processed successfully",
         "url": data.url,
         "body": data.body
     }
@@ -127,5 +130,10 @@ async def index_website(data: InputData):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(
+        "chrome_website_indexer:app",
+        host="127.0.0.1",
+        port=8080, 
+        reload=True
+    )
 
