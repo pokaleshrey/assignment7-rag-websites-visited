@@ -13,7 +13,7 @@ def get_perception(user_query: str) -> PerceptionOutput:
     
     try:
         prompt = f"""
-You are an AI Agent that searches the facts from user input.
+You are an AI Agent that helps user to search a url, by matching user input text to indexed data.
 
 Input: "{user_query}"
 

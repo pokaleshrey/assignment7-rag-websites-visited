@@ -10,8 +10,23 @@ function logDebug(message, data = null) {
 // Add a cache to track processed tab IDs and URLs
 const processedTabs = new Map();
 
+// Add a flag to track if the tab was opened by the popup.js service
+const tabsOpenedByPopup = new Set();
+
+chrome.runtime.onMessage.addListener((message, sender) => {
+  if (message.type === 'popup-opened-tab' && sender.tab) {
+    tabsOpenedByPopup.add(sender.tab.id);
+  }
+});
+
 chrome.webNavigation.onCompleted.addListener(async (details) => {
   try {
+    // Skip processing if the tab was opened by the popup.js service
+    if (tabsOpenedByPopup.has(details.tabId)) {
+      logDebug('Skipping processing for tab opened by popup.js', { tabId: details.tabId });
+      return;
+    }
+
     logDebug('In method');
 
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -68,7 +83,7 @@ chrome.webNavigation.onCompleted.addListener(async (details) => {
           })
           .catch(error => {
             console.error('Error calling web service:', error);
-            let errorMessage = 'Failed to connect to stock price service:\n';
+            let errorMessage = 'Failed to connect to service:\n';
             if (chrome.notifications && chrome.notifications.create) {
               chrome.notifications.create({
                 type: 'basic',

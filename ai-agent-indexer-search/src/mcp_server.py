@@ -499,7 +499,7 @@ def search_documents(query: str) -> list[str]:
 
 @mcp.tool()
 def find_url_for_given_text(query: str) -> list[str]:
-    """Searches for a url for a given text."""
+    """Searches for a url for a given query."""
     ensure_faiss_ready()
     mcp_log("SEARCH", f"Query: {query}")
     try:

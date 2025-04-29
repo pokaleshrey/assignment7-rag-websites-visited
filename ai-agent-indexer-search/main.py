@@ -16,6 +16,9 @@ CORS(app)
 class InputSearchQuery(BaseModel):
     query: str
 
+class OutputSearchQuery(BaseModel):
+    url: str
+
 @app.route("/search-agent", methods=["POST"])
 async def search_text():
     data = request.get_json()
@@ -24,23 +27,23 @@ async def search_text():
         return jsonify({"detail": "'query' is required"}), 400
 
     print("INFO", f"Processing query: {query}")
-    response_data = await agent_process(query)
-    print("INFO", f"Response data: {response_data}")
+    output_search_query: OutputSearchQuery = await agent_process(query)
+    print("INFO", f"Response data: {output_search_query}")
 
-    if response_data is None:
+    if output_search_query.url is None:
         return jsonify({"detail": "No results found for the query"}), 500
 
-    url = response_data.get("url", "")
-    highlight_text = response_data.get("highlight_text", "")
+    url = output_search_query.url
+    #highlight_text = output_search_query.get("highlight_text", "")
 
     response = {
         "query": query,
         "url": url,
-        "highlight_text": highlight_text
+        "highlight_text": query
     }
     return jsonify(response)
 
-async def agent_process(query: str) -> Dict[str, Any]:
+async def agent_process(query: str) -> str:
     print("ASSISTANT:", "Starting main execution...")
     try:
         print("ASSISTANT:", "Establishing connection to MCP server...")
@@ -88,7 +91,7 @@ async def agent_process(query: str) -> Dict[str, Any]:
 
                     if plan_output.response_type == "FINAL_ANSWER":
                         print("ASSISTANT:", f"✅ FINAL RESULT: {plan_output}")
-                        return plan_output.arguments
+                        return OutputSearchQuery(url=plan_output.final_answer)
 
                     try:
                         # Action

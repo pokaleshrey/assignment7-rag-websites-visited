@@ -21,21 +21,41 @@ document.getElementById('searchButton').addEventListener('click', () => {
     })
     .then(data => {
       const { url, highlight_text } = data;
-
+      
       chrome.tabs.create({ url }, (tab) => {
         chrome.scripting.executeScript({
           target: { tabId: tab.id },
-          func: (highlightText) => {
-            const range = document.createRange();
-            const selection = window.getSelection();
-            const textNode = Array.from(document.body.querySelectorAll('*'))
-              .find(node => node.textContent.includes(highlightText));
+          func: (highlight_text) => {
+            const findAndHighlightText = (text) => {
+              const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+                acceptNode: (node) => node.textContent.includes(text) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT
+              });
 
-            if (textNode) {
-              range.selectNodeContents(textNode);
-              selection.removeAllRanges();
-              selection.addRange(range);
-            }
+              const textNode = walker.nextNode();
+
+              if (textNode) {
+                const range = document.createRange();
+                const startIndex = textNode.textContent.indexOf(text);
+                const endIndex = startIndex + text.length;
+                range.setStart(textNode, startIndex);
+                range.setEnd(textNode, endIndex);
+
+                const rect = range.getBoundingClientRect();
+                const highlightDiv = document.createElement('div');
+                highlightDiv.style.position = 'absolute';
+                highlightDiv.style.left = `${rect.left + window.scrollX}px`;
+                highlightDiv.style.top = `${rect.top + window.scrollY}px`;
+                highlightDiv.style.width = `${rect.width}px`;
+                highlightDiv.style.height = `${rect.height}px`;
+                highlightDiv.style.border = '2px solid red';
+                highlightDiv.style.zIndex = '9999';
+                document.body.appendChild(highlightDiv);
+
+                window.scrollTo({ top: rect.top + window.scrollY - 100, behavior: 'smooth' });
+              }
+            };
+
+            findAndHighlightText(highlight_text);
           },
           args: [highlight_text]
         });

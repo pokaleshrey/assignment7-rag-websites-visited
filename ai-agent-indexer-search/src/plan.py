@@ -5,6 +5,7 @@ from src.memory_data import InteractionHistory
 from google import genai
 import os
 from dotenv import load_dotenv
+import re
 
 load_dotenv()
 
@@ -29,7 +30,7 @@ def create_system_prompt(perception_output: PerceptionOutput, tools_description:
     example_step14 = '{"response_type": "FUNCTION_CALL", "tool": "verify_open_paint", "arguments": {}}'
     example_step15 = '{"response_type": "FINAL_ANSWER", "final_answer": "4.515964472389928e+38", "reasoning_type": "arithmetic"}'
 
-    system_prompt = f"""You are a reasoning-driven AI agent with access to tools. Your job is to solve the user's request step-by-step by reasoning through the problem, selecting a tool if needed, and continuing until the FINAL_ANSWER is produced.
+    system_prompt = f"""You are a URL finder AI agent with access to tools. Your job is to search the user provided text and select correct URL, and continue until the FINAL_ANSWER is produced.
 
 You have access to the following available tools:
 {tools_description}
@@ -95,10 +96,13 @@ def get_plan(perception_output: PerceptionOutput, tools_descriptions: Optional[s
             contents=system_prompt
         )
         raw = response.text.strip()
-        #print("PLAN:", f"LLM Output: {raw}")
+
+        # Strip Markdown backticks if present
+        clean = re.sub(r"^```json|```$", "", raw.strip(), flags=re.MULTILINE).strip()
+        #print("PLAN:", f"LLM Output: {clean}")
 
     except Exception as e:
         print("PLAN:", f"⚠️ Decision generation failed: {e}")
         return PlanOutput(response_type="ERROR:", tool="unknown", arguments={}, reasoning_type="error_handling")
 
-    return PlanOutput.model_validate_json(raw)
+    return PlanOutput.model_validate_json(clean)
