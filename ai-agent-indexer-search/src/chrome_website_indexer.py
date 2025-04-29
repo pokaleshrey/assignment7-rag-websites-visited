@@ -69,7 +69,8 @@ def process_documents(url: str, html_body: str):
     markdown_text = str(MarkItDown().convert(str("data:"+html_body)))
 
     # Compute hash for the markdown text
-    content_hash = compute_hash(markdown_text)
+    content_hash = compute_hash(url)
+    print(f"Content hash: {content_hash}")
     if url in CACHE_META and CACHE_META[url] == content_hash:
         mcp_log("SKIP", f"Skipping unchanged URL: {url}")
         return

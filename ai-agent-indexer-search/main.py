@@ -1,3 +1,5 @@
+from flask import Flask, request, jsonify
+from flask_cors import CORS
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 import asyncio
@@ -5,50 +7,42 @@ from src.memory_data import update_user_query, get_recent_memory_interactions, a
 from src.perception import get_perception
 from src.plan import get_plan
 from src.action import execute_action
-from fastapi import FastAPI, HTTPException, Query
-from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Any, Dict
 
-app = FastAPI()
-
-# Configure CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # Allows all origins
-    allow_credentials=True,
-    allow_methods=["*"],  # Allows all methods
-    allow_headers=["*"],  # Allows all headers
-)
+app = Flask(__name__)
+CORS(app)
 
 class InputSearchQuery(BaseModel):
     query: str
 
-@app.get("/search-text")
-async def search_text(query: str = Query(..., description="Search query")):
+@app.route("/search-agent", methods=["POST"])
+async def search_text():
+    data = request.get_json()
+    query = data.get("query")
     if not query:
-        raise HTTPException(status_code=400, detail="'query' is required")
+        return jsonify({"detail": "'query' is required"}), 400
 
-    # Pass the query to process_documents
     print("INFO", f"Processing query: {query}")
-    response_data = await main(query)
-    if response_data is None:
-        raise HTTPException(status_code=500, detail="Failed to process the query. Response data is None.")
+    response_data = await agent_process(query)
+    print("INFO", f"Response data: {response_data}")
 
-    url = response_data.get("url")
-    highlight_text = response_data.get("highlight_text")
+    if response_data is None:
+        return jsonify({"detail": "No results found for the query"}), 500
+
+    url = response_data.get("url", "")
+    highlight_text = response_data.get("highlight_text", "")
 
     response = {
         "query": query,
         "url": url,
         "highlight_text": highlight_text
     }
-    return response
+    return jsonify(response)
 
-async def main(query: str) -> Dict[str, Any]:
+async def agent_process(query: str) -> Dict[str, Any]:
     print("ASSISTANT:", "Starting main execution...")
     try:
-        # Create a single MCP server connection
         print("ASSISTANT:", "Establishing connection to MCP server...")
         server_params = StdioServerParameters(
             command="python",
@@ -60,21 +54,20 @@ async def main(query: str) -> Dict[str, Any]:
             async with ClientSession(read, write) as session:
                 print("ASSISTANT:", "Session created, initializing...")
                 await session.initialize()
-                
+
                 user_query = query
-                
+
                 update_user_query(user_query)
                 print("ASSISTANT:", "-" * 50)
 
-                # Get available tools
                 tools_result = await session.list_tools()
                 tools = tools_result.tools
                 tools_descriptions = "\n".join(
-                                f"- {tool.name}: {getattr(tool, 'description', 'No description')}" 
-                                for tool in tools
-                            )
+                    f"- {tool.name}: {getattr(tool, 'description', 'No description')}" 
+                    for tool in tools
+                )
                 print("ASSISTANT:", f"Successfully retrieved {len(tools)} tools")
-                
+
                 max_iterations = 15
                 iteration = 0
 
@@ -103,7 +96,7 @@ async def main(query: str) -> Dict[str, Any]:
                         print("ASSISTANT:", f"Action Output: {action_output}")
 
                         add_interaction(input_text=f"Tool call: {action_output.tool} with {action_output.arguments}, got: {action_output.result}", 
-                                                     output_text=action_output.result)
+                                         output_text=action_output.result)
                         print("ASSISTANT:", f"Memory updated with action output: {action_output.result}")
 
                         user_query = f"{query} \n You have called a tool {action_output.tool} with arguments {action_output.arguments}, result is: {action_output.result}."
@@ -121,16 +114,7 @@ async def main(query: str) -> Dict[str, Any]:
     except KeyboardInterrupt:
         print("ASSISTANT:", "\nGoodbye!")
 
-# if __name__ == "__main__":
-#     query = input("\nEnter your query or Press Enter for default one: ").strip()
-#     query = query if query else "What do you know about Don Tapscott and Anthony Williams?"
-#     asyncio.run(main(query))
+    return None
 
 if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(
-        "main:app",
-        host="127.0.0.1",
-        port=8081, 
-        reload=True
-    )
+    app.run(host="127.0.0.1", port=8081, debug=True)
