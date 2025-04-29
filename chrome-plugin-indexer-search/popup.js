@@ -6,7 +6,13 @@ document.getElementById('searchButton').addEventListener('click', () => {
     return;
   }
 
-  fetch(`http://127.0.0.1:8081/search-text?query=${searchText}`)
+  fetch('http://127.0.0.1:8081/search-agent', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ query: searchText })
+  })
     .then(response => {
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
